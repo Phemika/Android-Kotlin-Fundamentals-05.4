@@ -1,25 +1,11 @@
-/*
- * Copyright (C) 2019 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.example.android.guesstheword.screens.game
 
 import android.os.CountDownTimer
+import android.text.format.DateUtils
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Transformations
 import androidx.lifecycle.ViewModel
 
 /**
@@ -27,6 +13,7 @@ import androidx.lifecycle.ViewModel
  */
 class GameViewModel : ViewModel() {
     private val timer: CountDownTimer
+
     companion object {
 
         // Time when the game is over
@@ -54,6 +41,17 @@ class GameViewModel : ViewModel() {
     private val _currentTime = MutableLiveData<Long>()
     val currentTime: LiveData<Long>
         get() = _currentTime
+
+
+    // The String version of the current time
+    val currentTimeString = Transformations.map(currentTime) { time ->
+        DateUtils.formatElapsedTime(time)
+    }
+
+    // Event which triggers the end of the game
+    private val _eventGameFinish = MutableLiveData<Boolean>()
+    val eventGameFinish: LiveData<Boolean>
+        get() = _eventGameFinish
 
 
     // The list of words - the front of the list is the next _word to guess
@@ -96,28 +94,29 @@ class GameViewModel : ViewModel() {
         Log.i("GameViewModel", "GameViewModel created!")
         resetList()
         nextWord()
-    }
-    timer = object : CountDownTimer(COUNTDOWN_TIME, ONE_SECOND) {
 
-        override fun onTick(millisUntilFinished: Long)
-        {
-            _currentTime.value = millisUntilFinished/ONE_SECOND
+        // Creates a timer which triggers the end of the game when it finishes
+        timer = object : CountDownTimer(COUNTDOWN_TIME, ONE_SECOND) {
+
+            override fun onTick(millisUntilFinished: Long) {
+                _currentTime.value = millisUntilFinished/ONE_SECOND
+            }
+
+            override fun onFinish() {
+                _currentTime.value = DONE
+                onGameFinish()
+            }
         }
 
-        override fun onFinish() {
-            _currentTime.value = DONE
-            onGameFinish()
-        }
+        timer.start()
     }
-
-    timer.start()
 
     /**
      * Callback called when the ViewModel is destroyed
      */
     override fun onCleared() {
         super.onCleared()
-        // Cancel the timer
+        Log.i("GameViewModel", "GameViewModel destroyed!")
         timer.cancel()
     }
 
@@ -135,16 +134,14 @@ class GameViewModel : ViewModel() {
      * Moves to the next _word in the list.
      */
     private fun nextWord() {
-        // Shuffle the word list, if the list is empty
         if (wordList.isEmpty()) {
             resetList()
+
         } else {
-            // Remove a word from the list
+            //Select and remove a _word from the list
             _word.value = wordList.removeAt(0)
         }
     }
-
-
 
     /** Method for the game completed event **/
 
